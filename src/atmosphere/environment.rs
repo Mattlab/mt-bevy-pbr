@@ -113,17 +113,36 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
     pipeline_cache: Res<PipelineCache>,
     mut commands: Commands,
 ) {
+    // Atmosphere settings and probe textures can be extracted while their
+    // camera has no active render view yet. Wait for the view's buffers without
+    // retiring LUTs: cached probes retain references to those live producers.
+    let (
+        Some(atmosphere_binding),
+        Some(settings_binding),
+        Some(transforms_binding),
+        Some(view_binding),
+        Some(lights_binding),
+    ) = (
+        atmosphere_uniforms.binding(),
+        settings_uniforms.binding(),
+        atmosphere_transforms.uniforms().binding(),
+        view_uniforms.uniforms.binding(),
+        lights_uniforms.view_gpu_lights.binding(),
+    ) else {
+        return;
+    };
+
     for (entity, textures) in &probes {
         let environment = render_device.create_bind_group(
             "environment_bind_group",
             &pipeline_cache.get_bind_group_layout(&layouts.environment),
             &BindGroupEntries::with_indices((
                 // uniforms
-                (0, atmosphere_uniforms.binding().unwrap()),
-                (1, settings_uniforms.binding().unwrap()),
-                (2, atmosphere_transforms.uniforms().binding().unwrap()),
-                (3, view_uniforms.uniforms.binding().unwrap()),
-                (4, lights_uniforms.view_gpu_lights.binding().unwrap()),
+                (0, atmosphere_binding.clone()),
+                (1, settings_binding.clone()),
+                (2, transforms_binding.clone()),
+                (3, view_binding.clone()),
+                (4, lights_binding.clone()),
                 // atmosphere luts and sampler
                 (8, &textures.transmittance_lut.default_view),
                 (9, &textures.multiscattering_lut.default_view),
